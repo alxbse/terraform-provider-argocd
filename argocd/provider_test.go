@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Masterminds/semver"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -44,19 +43,24 @@ func testAccPreCheck(t *testing.T) {
 }
 
 func testAccPreCheckFeatureSupported(t *testing.T, feature int) {
-	v := os.Getenv("ARGOCD_VERSION")
-	if v == "" {
-		t.Skip("ARGOCD_VERSION must be set set for feature supported acceptance tests")
-	}
-	serverVersion, err := semver.NewVersion(v)
+	testAccProvider, err := testAccProviders["argocd"]()
 	if err != nil {
-		t.Fatalf("could not parse ARGOCD_VERSION as semantic version: %s", v)
+		t.Fatal(err)
 	}
-	versionConstraint, ok := featureVersionConstraintsMap[feature]
-	if !ok {
-		t.Fatal("feature constraint is not handled by the provider")
+
+	d := schema.TestResourceDataRaw(t, testAccProvider.Schema, make(map[string]interface{}))
+	server := ServerInterface{ProviderData: d}
+	err = server.initClients()
+	if err != nil {
+		t.Fatal(err)
 	}
-	if i := versionConstraint.Compare(serverVersion); i == 1 {
-		t.Skipf("version %s does not support feature", v)
+
+	featureSupported, err := server.isFeatureSupported(feature)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !featureSupported {
+		t.Skip("feature not supported in tested argocd version")
 	}
 }
