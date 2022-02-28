@@ -126,6 +126,11 @@ func flattenCluster(cluster *application.Cluster, d *schema.ResourceData) error 
 		"config":     flattenClusterConfig(cluster.Config, d),
 		"project":    cluster.Project,
 	}
+	if len(cluster.Annotations) != 0 || len(cluster.Labels) != 0 {
+		// The generic flattenMetadata function can not be used since the Cluster
+		// object does not actually have ObjectMeta, just label and annotation maps
+		r["metadata"] = flattenClusterMetadata(cluster.Annotations, cluster.Labels)
+	}
 	if cluster.Shard != nil {
 		r["shard"] = convertInt64PointerToString(cluster.Shard)
 	}
@@ -201,4 +206,19 @@ func flattenClusterConfigExecProviderConfig(epc *application.ExecProviderConfig)
 		}
 	}
 	return
+}
+
+func flattenClusterMetadata(annotations, labels map[string]string) []map[string]interface{} {
+	metadata := []map[string]interface{}{
+		{},
+	}
+	if len(annotations) != 0 {
+		metadata[0]["annotations"] = annotations
+	}
+
+	if len(labels) != 0 {
+		metadata[0]["labels"] = labels
+	}
+
+	return metadata
 }
